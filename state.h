@@ -1,26 +1,31 @@
 #ifndef STATE_H_
 #define STATE_H_
 
+#include "stdint.h"
+
 #define NUM_CONTROLLERS (32 - 4)
 #define NUM_CHANNELS 7
+#define NORDDRUM2
+//#define MFB_TANZBAER
 
 struct Controller {
-  enum Mode { SINUS = 0, PULSE, RAND, WALK, NUM_MODES };
+  enum Mode { SINUS = 0, PULSE, WALK, NUM_MODES };
 
-  enum Speed { SLOW = 0, MED, FAST, ULTRA, NUM_SPEEDS };
+  enum Speed {  SLOW = 0, MED, FAST, ULTRA, NUM_SPEEDS };
 
   bool active;
-  bool speed_visualization;
+  float speed_visualization;
   Mode mode;
   Speed speed;
   float state;
-  float phase;
   float accel_state;
   uint16_t last_midi_out;
+  unsigned long last_midi_time;
 };
 
 struct Channel {
   Controller controller[NUM_CONTROLLERS];
+  bool muted;
 };
 
 struct State {

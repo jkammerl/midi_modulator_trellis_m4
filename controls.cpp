@@ -1,15 +1,16 @@
 /*
- * controls.cpp
- *
- *  Created on: Oct 22, 2018
- *      Author: dean
- */
-#undef max
-#undef min
-#include <algorithm>
+   controls.cpp
+
+    Created on: Oct 22, 2018
+        Author: dean
+*/
 
 #include "controls.h"
 #include "state.h"
+
+#undef max
+#undef min
+#include <algorithm>
 
 // Configuration for the datalogging file:
 #define FILE_NAME "/data.raw"
@@ -26,13 +27,22 @@ Adafruit_ADXL343 accel = Adafruit_ADXL343(123, &Wire1);
 
 int controller_to_key_map[] = {1,  2,  3,  4,  5,  6,  7,  9,  10, 11,
                                12, 13, 14, 15, 17, 18, 19, 20, 21, 22,
-                               23, 25, 26, 27, 28, 29, 30, 31};
+                               23, 25, 26, 27, 28, 29, 30, 31
+                              };
+int controller_to_key_map_size = sizeof(controller_to_key_map) / sizeof(int);
+int key_to_controller_map[32];
+
 
 Controls::Controls(Adafruit_NeoTrellisM4 *trellis, State *state)
-    : trellis_(trellis), state_(state) {
+  : trellis_(trellis), state_(state) {
   key_pressed_timestamp_ = 0;
   mode_button_down_ = false;
   edit_channel_ = 0;
+  memset(key_to_controller_map, 0xFF, sizeof(key_to_controller_map));
+  for (int i = 0; i < controller_to_key_map_size; ++i) {
+    key_to_controller_map[controller_to_key_map[i]] = i;
+  }
+  ResetKeyRange();
 }
 
 void Controls::init() {
@@ -45,7 +55,7 @@ void Controls::init() {
   /* Initialise the sensor */
   if (!accel.begin()) {
     /* There was a problem detecting the ADXL343 ... check your
-     * connections */
+       connections */
     Serial.println("Ooops, no ADXL343 detected");
     while (1)
       ;
@@ -58,46 +68,56 @@ void Controls::init() {
   Serial.println("Trellis started");
 }
 
-void Controls::ProcessMuteKeys() {
-  for (int i = 0; i < NUM_CONTROLLERS; ++i) {
-    if (trellis_->isPressed(controller_to_key_map[i])) {
-      state_->channels[edit_channel_].controller[i].active =
-          !state_->channels[edit_channel_].controller[i].active;
+template<typename F>
+void Controls::ApplyKeyRangeToControllers(F &function) {
+  if (!key_range_.ops_range_defined) {
+    return;
+  }
+  for (int x = key_range_.xmin; x <= key_range_.xmax; ++x) {
+    for (int y = key_range_.ymin; y <= key_range_.ymax; ++y) {
+      int controller_idx = key_to_controller_map[y * 8 + x];
+      if (controller_idx >= 0 && controller_idx < 32) {
+        function(controller_idx);
+      }
     }
   }
 }
 
+void Controls::ProcessMuteKeys() {
+  auto func = [this](int controller_idx) {
+    state_->channels[edit_channel_].controller[controller_idx].active =
+      !state_->channels[edit_channel_].controller[controller_idx].active;
+  };
+  ApplyKeyRangeToControllers(func);
+}
+
 void Controls::ProcessModulationKeys() {
-  for (int i = 0; i < NUM_CONTROLLERS; ++i) {
-    if (trellis_->isPressed(controller_to_key_map[i])) {
-      Controller *const controller =
-          &state_->channels[edit_channel_].controller[i];
-      switch (controller->mode) {
+  auto func = [this](int controller_idx) {
+    Controller *const controller =
+      &state_->channels[edit_channel_].controller[controller_idx];
+    switch (controller->mode) {
       case Controller::Mode::SINUS:
         controller->mode = Controller::Mode::PULSE;
         break;
       case Controller::Mode::PULSE:
-        controller->mode = Controller::Mode::RAND;
-        break;
-      case Controller::Mode::RAND:
         controller->mode = Controller::Mode::WALK;
+        controller->state = random_.GetFloat();
         break;
       case Controller::Mode::WALK:
         controller->mode = Controller::Mode::SINUS;
         break;
       default:
         break;
-      }
     }
-  }
+  };
+  ApplyKeyRangeToControllers(func);
 }
 
 void Controls::ProcessSpeedKeys() {
-  for (int i = 0; i < NUM_CONTROLLERS; ++i) {
-    if (trellis_->isPressed(controller_to_key_map[i])) {
-      Controller *const controller =
-          &state_->channels[edit_channel_].controller[i];
-      switch (controller->speed) {
+  auto func = [this](int controller_idx) {
+    Controller *const controller =
+      &state_->channels[edit_channel_].controller[controller_idx];
+    switch (controller->speed) {
       case Controller::Speed::SLOW:
         controller->speed = Controller::Speed::MED;
         break;
@@ -112,20 +132,50 @@ void Controls::ProcessSpeedKeys() {
         break;
       default:
         break;
-      }
     }
-  }
+  };
+  ApplyKeyRangeToControllers(func);
 }
 
 void Controls::ProcessChannelKeys() {
   for (int c = 0; c < NUM_CHANNELS; ++c) {
-    for (int i = 0; i < 4; ++i) {
+    if (trellis_->isPressed(c + 1)) {
+      state_->channels[c].muted = !state_->channels[c].muted;
+    }
+    for (int i = 1; i < 4; ++i) {
       if (trellis_->isPressed(c + 1 + i * 8)) {
         edit_channel_ = c;
         return;
       }
     }
   }
+}
+
+void Controls::ResetKeyRange() {
+  key_range_.ops_range_defined = false;
+  key_range_.xmin = key_range_.ymin = std::numeric_limits<int>::max();
+  key_range_.xmax = key_range_.ymax = 0;
+}
+
+int Controls::UpdateKeyRange() {
+  int num_key_pressed = 0;
+  for (int i = 0; i < 32; ++i) {
+    if (i % 8 == 0) {
+      // Skip mode keys.
+      continue;
+    }
+    if (trellis_->isPressed(i)) {
+      ++num_key_pressed;
+      key_range_.ops_range_defined = true;
+      int xpos = i % 8;
+      int ypos = i / 8;
+      key_range_.xmin = std::min( key_range_.xmin, xpos);
+      key_range_.ymin = std::min(key_range_.ymin, ypos);
+      key_range_.xmax = std::max(key_range_.xmax, xpos);
+      key_range_.ymax = std::max(key_range_.ymax, ypos);
+    }
+  }
+  return num_key_pressed;
 }
 
 void Controls::ProcessKeys() {
@@ -158,25 +208,33 @@ void Controls::ProcessKeys() {
           mode_button_down_ = true;
         }
       }
-      switch (state_->op_mode) {
-      case State::OpMode::MUTE:
-        ProcessMuteKeys();
-        break;
-      case State::OpMode::MODULATION:
-        ProcessModulationKeys();
-        break;
-      case State::OpMode::SPEED:
-        ProcessSpeedKeys();
-        break;
-      case State::OpMode::CHANNEL:
+      if (state_->op_mode == State::OpMode::CHANNEL) {
         ProcessChannelKeys();
-      default:
-        break;
       }
     }
+    const int num_keys_pressed = UpdateKeyRange();
+    Serial.print(num_keys_pressed);
+    if (num_keys_pressed == 0 && key_range_.ops_range_defined) {
+      switch (state_->op_mode) {
+        case State::OpMode::MUTE:
+          ProcessMuteKeys();
+          break;
+        case State::OpMode::MODULATION:
+          ProcessModulationKeys();
+          break;
+        case State::OpMode::SPEED:
+          ProcessSpeedKeys();
+          break;
+        case State::OpMode::CHANNEL:
+        default:
+          break;
+      }
+      ResetKeyRange();
+    }
+
     if (trellis_->isPressed(KEY_CHANNEL_MODE) &&
         trellis_->isPressed(KEY_MUTE_MODE)) {
-      ResetEverything();
+      ResetChannel();
     }
     if (e.bit.EVENT == KEY_JUST_RELEASED) {
       mode_button_down_ = false;
@@ -200,16 +258,16 @@ void Controls::ProcessKeys() {
 }
 
 void Controls::RenderModulationView() {
-  uint32_t kModeColors[] = {0x00FFFF, 0xFF0000, 0x00FF00, 0x0000FF};
+  uint32_t kModeColors[] = {0x00FFFF, 0x0000FF, 0x00FF00, 0xFF0000};
 
   for (int i = 0; i < NUM_CONTROLLERS; ++i) {
     uint32_t overlay =
-        kModeColors[static_cast<size_t>(
-                        state_->channels[edit_channel_].controller[i].mode) %
-                    4];
+      kModeColors[static_cast<size_t>(
+                    state_->channels[edit_channel_].controller[i].mode) %
+                  4];
     uint8_t state_byte =
-        state_->channels[edit_channel_].controller[i].accel_state * 255.0f *
-        BRIGHTNESS;
+      state_->channels[edit_channel_].controller[i].accel_state * 255.0f *
+      BRIGHTNESS;
     uint32_t state_color = (state_byte << 16) + (state_byte << 8) + state_byte;
     trellis_->setPixelColor(controller_to_key_map[i], state_color & overlay);
   }
@@ -222,8 +280,8 @@ void Controls::RenderMuteView() {
       overlay = 0XFF0000;
     }
     uint8_t state_byte =
-        state_->channels[edit_channel_].controller[i].accel_state * 255.0f *
-        BRIGHTNESS;
+      state_->channels[edit_channel_].controller[i].accel_state * 255.0f *
+      BRIGHTNESS;
     uint32_t state_color = (state_byte << 16) + (state_byte << 8) + state_byte;
     trellis_->setPixelColor(controller_to_key_map[i], state_color & overlay);
   }
@@ -234,52 +292,67 @@ void Controls::RenderSpeedView() {
 
   for (int i = 0; i < NUM_CONTROLLERS; ++i) {
     uint32_t overlay =
-        kSpeedColors[static_cast<size_t>(
-                         state_->channels[edit_channel_].controller[i].speed) %
-                     4];
+      kSpeedColors[static_cast<size_t>(
+                     state_->channels[edit_channel_].controller[i].speed) %
+                   4];
     uint8_t state_byte =
-        state_->channels[edit_channel_].controller[i].speed_visualization *
-        255.0f * BRIGHTNESS;
+      state_->channels[edit_channel_].controller[i].speed_visualization *
+      255.0f * BRIGHTNESS;
     uint32_t state_color = state_byte;
     trellis_->setPixelColor(controller_to_key_map[i], state_color);
   }
 }
 
 void Controls::RenderChannelView() {
-  for (int i = 0; i < 4; ++i) {
-    uint8_t state_byte = 255.0f * BRIGHTNESS;
-    uint32_t state_color = state_byte << 8;
+  const uint8_t state_byte = 255.0f * BRIGHTNESS;
+  for (int i = 1; i < 4; ++i) {
+    const uint32_t state_color = state_byte << 8;
     trellis_->setPixelColor(edit_channel_ + 1 + i * 8, state_color);
+  }
+  for (int c = 0; c < NUM_CHANNELS; ++c) {
+    if (state_->channels[c].muted) {
+      const uint32_t state_color = state_byte << 16;
+      trellis_->setPixelColor(c + 1, state_color);
+    }
   }
 }
 
 void Controls::RenderView() {
+  const bool muted = state_->channels[edit_channel_].muted;
   uint8_t mode_byte = 255.0f * BRIGHTNESS;
   uint32_t mode_color = (mode_byte << 16) + (mode_byte << 8) + mode_byte;
+  if (muted) {
+    mode_color &= 0xFF0000;
+  }
 
   switch (state_->op_mode) {
-  case State::OpMode::MUTE:
-    trellis_->setPixelColor(KEY_MUTE_MODE, mode_color);
-    RenderMuteView();
-    break;
-  case State::OpMode::MODULATION:
-    trellis_->setPixelColor(KEY_MODULATION_MODE, mode_color);
-    RenderModulationView();
-    break;
-  case State::OpMode::SPEED:
-    trellis_->setPixelColor(KEY_SPEED_MODE, mode_color);
-    RenderSpeedView();
-    break;
-  case State::OpMode::CHANNEL:
-    trellis_->setPixelColor(KEY_CHANNEL_MODE, mode_color);
-    RenderChannelView();
-    break;
-  default:
-    break;
+    case State::OpMode::MUTE:
+      trellis_->setPixelColor(KEY_MUTE_MODE, mode_color);
+      RenderMuteView();
+      break;
+    case State::OpMode::MODULATION:
+      trellis_->setPixelColor(KEY_MODULATION_MODE, mode_color);
+      RenderModulationView();
+      break;
+    case State::OpMode::SPEED:
+      trellis_->setPixelColor(KEY_SPEED_MODE, mode_color);
+      RenderSpeedView();
+      break;
+    case State::OpMode::CHANNEL:
+      trellis_->setPixelColor(KEY_CHANNEL_MODE, mode_color);
+      RenderChannelView();
+      break;
+    default:
+      break;
   }
 }
 
-void Controls::ResetEverything() { memset(state_, 0, sizeof(State)); }
+void Controls::ResetChannel() {
+  memset(&state_->channels[edit_channel_], 0, sizeof(Channel));
+}
+void Controls::ResetEverything() {
+  memset(state_, 0, sizeof(state_));
+}
 
 void Controls::RandMute() {
   for (int i = 0; i < NUM_CONTROLLERS; ++i) {
@@ -292,7 +365,7 @@ void Controls::RandMode() {
   for (int i = 0; i < NUM_CONTROLLERS; ++i) {
     Controller *controller = &state_->channels[edit_channel_].controller[i];
     controller->mode = static_cast<Controller::Mode>(
-        random_.GetInt() % Controller::Mode::NUM_MODES);
+                         random_.GetInt() % Controller::Mode::NUM_MODES);
   }
 }
 
@@ -300,7 +373,7 @@ void Controls::RandSpeed() {
   for (int i = 0; i < NUM_CONTROLLERS; ++i) {
     Controller *controller = &state_->channels[edit_channel_].controller[i];
     controller->speed = static_cast<Controller::Speed>(
-        random_.GetInt() % Controller::Speed::NUM_SPEEDS);
+                          random_.GetInt() % Controller::Speed::NUM_SPEEDS);
   }
 }
 
@@ -310,7 +383,6 @@ void Controls::RandEverything() {
   RandSpeed();
   for (int i = 0; i < NUM_CONTROLLERS; ++i) {
     Controller *controller = &state_->channels[edit_channel_].controller[i];
-    controller->phase = random_.GetInt();
   }
 }
 

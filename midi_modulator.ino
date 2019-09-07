@@ -14,23 +14,59 @@ MidiOut midiout(&trellis, &state);
 
 unsigned long prevReadTime = 0;
 
-void setup() {
-	Serial.begin(115200);
-	// while (!Serial);
-	delay(100);
-
-	controls.init();
-	modulator.init();
-	midiout.init();
+bool animation() {
+  static unsigned long t = millis();
+  if (millis() - t > 1000) {
+    return false;
+  }
+  trellis.tick();
+  trellis.fill(0);
+  trellis.setPixelColor(rand() % 32, rand() % 0xFFFFFF);
+  trellis.show();
+  return true;
 }
 
-void loop() {
-	unsigned long t = millis();
-	unsigned long time_diff = t - prevReadTime;
-	prevReadTime = t;
+void setup() {
+  Serial.begin(115200);
+  // while (!Serial);
+  delay(100);
 
-	controls.run();
-	modulator.run(time_diff);
-	midiout.run();
-	delay(50);
+  controls.init();
+  modulator.init();
+  midiout.init();
+}
+
+const double kMilliTo120qp =  120.0 / 60000.0 ; //* 24.0;
+double time_qp = 0.0;
+
+unsigned long last_midi_clock_received = 0;
+
+void loop() {
+  if (animation()) {
+    return;
+  }
+
+  unsigned long t = millis();
+  unsigned long time_diff = t - prevReadTime;
+  prevReadTime = t;
+
+  trellis.processMIDIIn();
+  int num_midi_clocks = trellis.midiClockTickReceived();
+  if (trellis.midiStartClockReceived()) {
+    last_midi_clock_received = t;
+    Serial.print("START\n");
+    time_qp = 0.0;
+  } else if (num_midi_clocks > 0) {
+    last_midi_clock_received = t;
+    time_qp += static_cast<double>(num_midi_clocks) / 24.0;
+  } else if (t - last_midi_clock_received > 1000) {
+    time_qp = static_cast<double>(t) * kMilliTo120qp;
+  }
+
+  controls.run();
+  modulator.run(time_qp);
+  midiout.run();
+  if (time_diff < 10) {
+    delay(10 - time_diff);
+  }
 }

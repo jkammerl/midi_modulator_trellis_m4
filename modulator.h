@@ -6,22 +6,24 @@
 #include <Adafruit_NeoTrellisM4.h>
 
 class Modulator {
-public:
-  Modulator(Adafruit_NeoTrellisM4 *trellis, State *state);
-  ~Modulator() {}
+  public:
+    Modulator(Adafruit_NeoTrellisM4 *trellis, State *state);
+    ~Modulator() {}
 
-  void init();
-  void run(unsigned long time_diff);
+    void init();
+    void run(double time_qp);
 
-private:
-  void UpdateController(Controller *controller, unsigned long time_diff);
-  float GetSpeed(Controller::Speed speed);
-  float GetRandomWalkSpeed(Controller::Speed speed);
+  private:
+    void UpdateController(Controller *controller, double prev_time_qp, double time_qp);
+    float GetSpeed(Controller::Speed speed);
+    float GetRandomWalkSpeed(Controller::Speed speed);
 
-  Adafruit_NeoTrellisM4 *const trellis_;
-  State *const state_;
+    Adafruit_NeoTrellisM4 *const trellis_;
+    State *const state_;
 
-  Random random_;
+    double prev_time_qp_;
+
+    Random random_;
 };
 
 #endif // MODULATOR_H_

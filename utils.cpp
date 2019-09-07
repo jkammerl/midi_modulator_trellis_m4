@@ -5,7 +5,9 @@ unsigned short Random::GetInt() {
   return lfsr_ = (lfsr_ >> 1) | (bit_ << 15);
 }
 
-float Random::GetFloat() { return static_cast<float>(GetInt()) / 0xFFFF; }
+float Random::GetFloat() {
+  return static_cast<float>(GetInt()) / 0xFFFF;
+}
 
 unsigned short Random::lfsr_ = 0xACE1u;
 unsigned Random::bit_;

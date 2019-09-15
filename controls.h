@@ -20,7 +20,7 @@ class Controls {
     ~Controls() {}
 
     void init();
-    void run();
+    void run(bool midi_clock_blink);
 
   private:
     template<typename F>

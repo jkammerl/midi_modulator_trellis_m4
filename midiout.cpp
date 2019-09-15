@@ -11,14 +11,34 @@ struct MidiMapping {
 #define MIN_MIDI_DELAY 1
 // Nord Drum 2
 static const MidiMapping kMidiMapping[] = {
-  {true, 0, 32},  {false, 0, 14}, {false, 0, 15}, {false, 0, 16},
-  {false, 0, 17}, {false, 0, 18}, {false, 0, 19}, {false, 0, 20},
-  {false, 0, 21}, {false, 0, 22}, {false, 0, 23}, {false, 0, 24},
-  {false, 0, 25}, {false, 0, 26}, {false, 0, 27}, {false, 0, 28},
-  {true, 29, 61}, {false, 0, 30}, {true, 31, 63}, {false, 0, 46},
-  {false, 0, 47}, {false, 0, 48}, {false, 0, 49}, {false, 0, 50},
-  {false, 0, 51}, {false, 0, 52}, {false, 0, 53}, {false, 0, 54},
-  {false, 0, 55}
+  {false, 0, 14}, // 1.1 Noise Filter Frequency
+  {false, 0, 15}, // 1.2 Noise Filter Type
+  {false, 0, 16}, // 1.3 Noise Filter Envelope
+  {false, 0, 17}, // 1.4 Noise Filter Resonance
+  {false, 0, 18}, // 1.5 Noise Attack/Rate
+  {false, 0, 19}, // 1.6 Noise Atk Mode
+  {false, 0, 20}, // 1.7 Noise Decay Type (E, L, G)
+  {false, 0, 21}, // 2.1 Noise Decay
+  {false, 0, 22}, // 2.2 Noise Decay Lo
+  {false, 0, 23}, // 2.3 Dist Amount
+  {false, 0, 24}, // 2.4 Dist Type
+  {false, 0, 25}, // 2.5 EQ Frequency
+  {false, 0, 26}, // 2.6 EQ Gain
+  {false, 0, 27}, // 2.7 Echo Feedback
+  {false, 0, 28}, // 3.1 Echo Amount
+  {true, 29, 61}, // 3.2 Echo BPM MSB
+  {false, 0, 30}, // 3.3 Tone Spectra
+  {true, 31, 63}, // 3.4 Tone Pitch
+  {false, 0, 46}, // 3.5 Tone Wave
+  {false, 0, 47}, // 3.6 Tone Timbre Decay
+  {false, 0, 48}, // 3.7 Tone Punch
+  {false, 0, 49}, // 4.1 Tone Decay Type (L, E)
+  {false, 0, 50}, // 4.2 Tone Decay
+  {false, 0, 51}, // 4.3 Tone Dec Lo
+  {false, 0, 52}, // 4.4 Tone Timbre
+  {false, 0, 53}, // 4.5 Tone Timb Envelope
+  {false, 0, 54}, // 4.6 Tone Bend Amount
+  {false, 0, 55} // 4.7 Tone Bend Time
 };
 
 #endif
@@ -127,7 +147,8 @@ void MidiOut::run() {
         continue;
       }
       controller->last_midi_time = now_time;
-      if (!kMidiMapping[idx].bit14) {
+
+     if (!kMidiMapping[idx].bit14) {
         trellis_->controlChange(kMidiMapping[idx].LSBC, range);
       } else {
         trellis_->controlChange(kMidiMapping[idx].LSBC, range & 0x7F);

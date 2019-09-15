@@ -409,9 +409,19 @@ void Controls::CalculateAccelState() {
   }
 }
 
-void Controls::run() {
+void Controls::run(bool midi_clock_blink) {
   trellis_->tick();
   trellis_->fill(0);
+
+
+  if (midi_clock_blink) {
+    const uint8_t mode_byte = 255.0f * BRIGHTNESS;
+    uint32_t mode_color = (mode_byte << 16) + (mode_byte << 8) + mode_byte;
+    trellis_->setPixelColor(0, mode_color);
+    trellis_->setPixelColor(8, mode_color);
+    trellis_->setPixelColor(16, mode_color);
+    trellis_->setPixelColor(24, mode_color);
+  }
 
   CalculateAccelState();
   ProcessKeys();

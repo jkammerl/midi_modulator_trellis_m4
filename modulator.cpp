@@ -63,7 +63,7 @@ void Modulator::UpdateController(Controller *controller, double prev_time_qp, do
     time_qp_bar < prev_time_qp_bar;
   const float rand_float = random_.GetFloat();
 
-  const float sin_mod = (sinf((time_qp / 4.0) * M_PI * 2.0f * speed_hz) + 1.0f) /
+  const float sin_mod = (sinf((time_qp / 4.0) * M_PI * 2.0f * speed_hz + M_PI/2.0) + 1.0f) /
                         2.0f;
 
   controller->speed_visualization = sin_mod;

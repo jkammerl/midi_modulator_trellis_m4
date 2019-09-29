@@ -31,12 +31,16 @@ class Controls {
     void ProcessSpeedKeys();
     void ProcessModulationKeys();
     void ProcessChannelKeys();
+    void ProcessEtcProgramKeys(int page_idx);
+    void ProcessEtcControlKeys();
 
     void RenderView();
     void RenderSpeedView();
     void RenderMuteView();
     void RenderModulationView();
     void RenderChannelView();
+    void RenderEtcProgramView(int page_idx);
+    void RenderEtcControlView();
 
     void RandMute();
     void RandMode();
@@ -51,6 +55,8 @@ class Controls {
     void ResetKeyRange();
     int UpdateKeyRange();
 
+    void SendEtcMidiProgramChange(byte poffset);
+
     Adafruit_NeoTrellisM4 *const trellis_;
     State *const state_;
 
@@ -61,6 +67,7 @@ class Controls {
 
     struct {
       bool ops_range_defined;
+      bool single_key;
       int xmin;
       int ymin;
       int xmax;

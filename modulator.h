@@ -17,6 +17,7 @@ class Modulator {
     void UpdateController(Controller *controller, double prev_time_qp, double time_qp);
     float GetSpeed(Controller::Speed speed);
     float GetRandomWalkSpeed(Controller::Speed speed);
+    void EtcDoProgramSwitch(double time_qp);   
 
     Adafruit_NeoTrellisM4 *const trellis_;
     State *const state_;

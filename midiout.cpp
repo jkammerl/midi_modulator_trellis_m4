@@ -159,4 +159,26 @@ void MidiOut::run() {
 #endif
     }
   }
+  for (int c = 0; c < NUM_CHANNELS; ++c) {
+    const int midi_channel = 0;
+    trellis_->setUSBMIDIchannel(midi_channel);
+    trellis_->setUARTMIDIchannel(midi_channel);  
+    for (int i = 0; i < 5; ++i) {
+      Controller *const controller = &state_->etc.controller[i];
+      if (!controller->active) {
+        continue;
+      }
+      const uint16_t range =
+        controller->accel_state * 0x7F;
+      if (controller->last_midi_out == range) {
+        continue;
+      }
+      unsigned long now_time = millis();
+      if (now_time - controller->last_midi_time < MIN_MIDI_DELAY) {
+        continue;
+      }
+      controller->last_midi_time = now_time;
+      trellis_->controlChange(21+i, range);
+    }
+  }
 }

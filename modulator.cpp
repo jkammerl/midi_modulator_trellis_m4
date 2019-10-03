@@ -119,16 +119,14 @@ void Modulator::EtcDoProgramSwitch(double time_qp) {
       available_programs.push_back(idx);
     }
   }
-  if (available_programs.size() == 0) {
-    return;
-  }
 
   switch (state_->etc.switch_mode) {
     case ETC::SwitchMode::FORWARD:
-        state_->etc.current_program = available_programs[1 % available_programs.size()];
+        if (available_programs.size() > 0) 
+           state_->etc.current_program = available_programs[1 % available_programs.size()];
         break;
     case ETC::SwitchMode::RAND_SWITCH:
-        state_->etc.current_program = available_programs[rand() % available_programs.size()];
+        state_->etc.current_program = random_.GetInt() % 127;
         break;        
     default:
         break;

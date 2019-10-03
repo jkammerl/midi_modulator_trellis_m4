@@ -214,17 +214,17 @@ void Controls::ProcessEtcControlKeys() {
     switch (key) {
       case 7:
         state_->etc.switch_duration = ETC::SwitchDuration::SLOW;
-        state_->etc.switch_duration_val = 3;
+        state_->etc.switch_duration_val = 8;
         state_->etc.switch_duration_val_applied = state_->etc.switch_duration_val;
         break;
       case 15:
         state_->etc.switch_duration = ETC::SwitchDuration::MED;
-        state_->etc.switch_duration_val = 1;
+        state_->etc.switch_duration_val = 4;
         state_->etc.switch_duration_val_applied = state_->etc.switch_duration_val;
         break;
       case 23:
         state_->etc.switch_duration = ETC::SwitchDuration::FAST;
-        state_->etc.switch_duration_val = 0.5;
+        state_->etc.switch_duration_val = 02;
         state_->etc.switch_duration_val_applied = state_->etc.switch_duration_val;
         break;
       case 31:
@@ -646,7 +646,7 @@ void Controls::CalculateAccelState() {
   // ETC
   for (int i = 0; i < 5; ++i) {
     Controller *controller = &state_->etc.controller[i];
-    controller->accel_state = GetAccelFactor(event, controller->state);
+    controller->accel_state = controller->state;
   }  
 }
 

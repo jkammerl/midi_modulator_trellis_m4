@@ -38,7 +38,7 @@ void MidiIn::process() {
            break;  
         case 0xD1:
              Serial.println("Begin map receiving");
-             map_receiving_counter = 0;
+             //map_receiving_counter = 0;
             break;
         case 0xB0:
            map_receiving_counter=rx.byte3;

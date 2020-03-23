@@ -13,10 +13,11 @@
 
 #include "state.h"
 #include "utils.h"
+#include "flash.h"
 
 class Controls {
   public:
-    Controls(Adafruit_NeoTrellisM4 *trellis, State *state);
+    Controls(Adafruit_NeoTrellisM4 *trellis, State *state, FlashFs* flash_fs);
     ~Controls() {}
 
     void init();
@@ -53,6 +54,7 @@ class Controls {
 
     Adafruit_NeoTrellisM4 *const trellis_;
     State *const state_;
+    FlashFs* const flash_fs_;
 
     unsigned long key_pressed_timestamp_;
     bool mode_button_down_;

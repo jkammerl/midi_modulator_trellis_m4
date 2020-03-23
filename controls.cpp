@@ -7,6 +7,7 @@
 
 #include "controls.h"
 #include "state.h"
+#include "midimapping.h"
 
 #undef max
 #undef min
@@ -33,8 +34,8 @@ int controller_to_key_map_size = sizeof(controller_to_key_map) / sizeof(int);
 int key_to_controller_map[32];
 
 
-Controls::Controls(Adafruit_NeoTrellisM4 *trellis, State *state)
-  : trellis_(trellis), state_(state) {
+Controls::Controls(Adafruit_NeoTrellisM4 *trellis, State *state, FlashFs* flash_fs)
+  : trellis_(trellis), state_(state), flash_fs_(flash_fs) {
   key_pressed_timestamp_ = 0;
   mode_button_down_ = false;
   edit_channel_ = 0;
@@ -185,24 +186,28 @@ void Controls::ProcessKeys() {
     if (e.bit.EVENT == KEY_JUST_PRESSED) {
       if (trellis_->isPressed(KEY_MUTE_MODE)) {
         state_->op_mode = State::OpMode::MUTE;
+        flash_fs_->WriteState(reinterpret_cast<const char*>(state_), sizeof(State), STATE_START_BLOCK);
         if (!mode_button_down_) {
           key_pressed_timestamp_ = millis();
           mode_button_down_ = true;
         }
       } else if (trellis_->isPressed(KEY_MODULATION_MODE)) {
         state_->op_mode = State::OpMode::MODULATION;
+        flash_fs_->WriteState(reinterpret_cast<const char*>(state_), sizeof(State), STATE_START_BLOCK);
         if (!mode_button_down_) {
           key_pressed_timestamp_ = millis();
           mode_button_down_ = true;
         }
       } else if (trellis_->isPressed(KEY_SPEED_MODE)) {
         state_->op_mode = State::OpMode::SPEED;
+        flash_fs_->WriteState(reinterpret_cast<const char*>(state_), sizeof(State), STATE_START_BLOCK);
         if (!mode_button_down_) {
           key_pressed_timestamp_ = millis();
           mode_button_down_ = true;
         }
       } else if (trellis_->isPressed(KEY_CHANNEL_MODE)) {
         state_->op_mode = State::OpMode::CHANNEL;
+        flash_fs_->WriteState(reinterpret_cast<const char*>(state_), sizeof(State), STATE_START_BLOCK);
         if (!mode_button_down_) {
           key_pressed_timestamp_ = millis();
           mode_button_down_ = true;
@@ -213,7 +218,6 @@ void Controls::ProcessKeys() {
       }
     }
     const int num_keys_pressed = UpdateKeyRange();
-    Serial.print(num_keys_pressed);
     if (num_keys_pressed == 0 && key_range_.ops_range_defined) {
       switch (state_->op_mode) {
         case State::OpMode::MUTE:
@@ -236,6 +240,12 @@ void Controls::ProcessKeys() {
         trellis_->isPressed(KEY_MUTE_MODE)) {
       ResetChannel();
     }
+    if (trellis_->isPressed(KEY_CHANNEL_MODE) &&
+        trellis_->isPressed(KEY_MUTE_MODE) &&
+        trellis_->isPressed(KEY_MODULATION_MODE) &&
+        trellis_->isPressed(KEY_MODULATION_MODE)) {
+      ResetEverything();
+    }    
     if (e.bit.EVENT == KEY_JUST_RELEASED) {
       mode_button_down_ = false;
     }
@@ -349,9 +359,15 @@ void Controls::RenderView() {
 
 void Controls::ResetChannel() {
   memset(&state_->channels[edit_channel_], 0, sizeof(Channel));
+  flash_fs_->WriteState(reinterpret_cast<const char*>(state_), sizeof(State), STATE_START_BLOCK);
 }
 void Controls::ResetEverything() {
-  memset(state_, 0, sizeof(state_));
+  Serial.println("Full reset");
+  memset(state_, 0, sizeof(State));
+  flash_fs_->WriteState(reinterpret_cast<const char*>(state_), sizeof(State), STATE_START_BLOCK);
+  InitMidiMapping();
+  flash_fs_->WriteState(reinterpret_cast<char*>(kMidiMapping), sizeof(MidiMapping)*kNumMidiMapping, MMAP_START_BLOCK);
+  delay(200);
 }
 
 void Controls::RandMute() {

@@ -35,4 +35,5 @@ struct State {
   Channel channels[NUM_CHANNELS];
 };
 
+
 #endif // STATE_H_

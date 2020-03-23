@@ -2,15 +2,20 @@
 
 #include "controls.h"
 #include "midiout.h"
+#include "midiin.h"
+#include "midimapping.h"
 #include "modulator.h"
 #include "state.h"
+#include "flash.h"
 
 Adafruit_NeoTrellisM4 trellis = Adafruit_NeoTrellisM4();
 
 State state;
-Controls controls(&trellis, &state);
+FlashFs flash_fs;
+Controls controls(&trellis, &state, &flash_fs);
 Modulator modulator(&trellis, &state);
 MidiOut midiout(&trellis, &state);
+MidiIn midiin(&flash_fs);
 
 unsigned long prevReadTime = 0;
 
@@ -31,9 +36,18 @@ void setup() {
   // while (!Serial);
   delay(100);
 
+  flash_fs.init();
+  
+  //InitMidiMapping();
+  flash_fs.ReadState(reinterpret_cast<char*>(kMidiMapping), sizeof(MidiMapping)*kNumMidiMapping, MMAP_START_BLOCK);
+
   controls.init();
   modulator.init();
   midiout.init();
+  midiin.init();
+
+  flash_fs.ReadState(reinterpret_cast<char*>(&state), sizeof(state), STATE_START_BLOCK);
+
 }
 
 const double kMilliTo120qp =  120.0 / 60000.0 ; //* 24.0;
@@ -46,14 +60,15 @@ void loop() {
     return;
   }
 
+  midiin.process();
+
   unsigned long t = millis();
   unsigned long time_diff = t - prevReadTime;
   prevReadTime = t;
 
-  trellis.processMIDIIn();
-  int num_midi_clocks = trellis.midiClockTickReceived();
+  int num_midi_clocks = midiin.num_clock_ticks();
   bool midi_clock_blink = false;
-  if (trellis.midiStartClockReceived()) {
+  if (midiin.num_start_clocks()) {
     last_midi_clock_received = t;
     time_qp = 0.0;
   } else if (num_midi_clocks > 0) {

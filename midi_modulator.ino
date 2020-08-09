@@ -15,13 +15,13 @@ FlashFs flash_fs;
 Controls controls(&trellis, &state, &flash_fs);
 Modulator modulator(&trellis, &state);
 MidiOut midiout(&trellis, &state);
-MidiIn midiin(&flash_fs);
+MidiIn midiin(&trellis, &flash_fs);
 
 unsigned long prevReadTime = 0;
 
 bool animation() {
   static unsigned long t = millis();
-  if (millis() - t > 1000) {
+  if (millis() - t > 3000) {
     return false;
   }
   trellis.tick();

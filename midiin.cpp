@@ -6,9 +6,10 @@
 midiEventPacket_t rx;
 int map_receiving_counter = 0xFF;
 
-MidiIn::MidiIn(FlashFs* flash_fs) : flash_fs_(flash_fs) {}
+MidiIn::MidiIn(Adafruit_NeoTrellisM4 *trellis, FlashFs* flash_fs) : trellis_(trellis), flash_fs_(flash_fs) {}
 
 void MidiIn::init() {
+   trellis_->enableUARTMIDI(true);
    start_clocks_ = 0;
    clock_ticks_ = 0;
 }
@@ -16,6 +17,9 @@ void MidiIn::init() {
 void MidiIn::process() {
   do {
     rx = MidiUSB.read();
+    if (rx.header == 0) {
+      return;
+    }
     switch (rx.byte1) {
         case 0xF8:
            ++clock_ticks_;
@@ -68,26 +72,16 @@ void MidiIn::process() {
         default:
            break;    
     }
-    switch (rx.byte1 & 0xF0) {
-      case 0x80:
-      case 0x90:
-      case 0xA0:
-      case 0xB0:
-      case 0xC0:
-      case 0xE0:
-          if (map_receiving_counter==0xFF) {
-            Serial1.write(rx.byte1);
-            Serial1.write(rx.byte2);
-            if (rx.byte1 & 0xF0 != 0xD0) {
-              Serial1.write(rx.byte3);
-            }
-          }
-          break;
-      case 0xD0:
-      default:
-          break; 
+    byte midi_status = rx.byte1 & 0xF0;
+    if (midi_status!=0xF0) {
+      Serial1.write(rx.byte1);
+      Serial1.write(rx.byte2);
+      if (midi_status!= 0xC0 &&
+          midi_status!= 0xD0) { 
+           Serial1.write(rx.byte3);
+      }      
     }
-  } while (rx.header != 0);
+  } while (true);
 }
 
 long MidiIn::num_start_clocks() {
